@@ -112,7 +112,7 @@ Where row_num > 1
 Order by PropertyAddress
 
 
--- Delete Unused Columns
+-- Deleting Unused Columns
 
 Alter table SQLDataCleaning.dbo.Nashville
 Drop Column OwnerAddress, TaxDistrict, PropertyAddress, SaleDate
