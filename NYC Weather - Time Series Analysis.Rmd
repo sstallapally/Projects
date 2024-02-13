@@ -1,0 +1,686 @@
+---
+title: "DS809 Final Project"
+output: html_notebook
+---
+
+```{r, warning=FALSE}
+#libraries used
+
+library(dplyr)
+library(skedastic)
+library(car)
+library(lubridate)
+library(TSA)
+library(kableExtra)
+library(tseries)
+library(lmtest)
+library(fGarch)
+library(forecast)
+library(MTS)
+library(tfarima)
+library(ggplot2)
+```
+
+
+```{r}
+#reading the data
+df<-read.csv("C:/Users/T.SHARMISHTA/OneDrive/Desktop/My files/DS 809/Term Project/data/NYC_Central_Park_weather_1869-2022.csv", header=TRUE)
+
+attach(df)
+head(df)
+dim(df)
+```
+
+```{r}
+#Taking the data from last 5 years
+df<-tail(df,1824)
+
+#Adding a month column
+df$MONTH<- month(ymd(df$DATE))
+
+#removing Date column
+nyc = subset(df, select = -c(DATE))
+
+rownames(nyc) <- NULL
+
+attach(nyc)
+head(nyc)
+tail(nyc)
+```
+
+```{r}
+summary(nyc)
+```
+
+```{r}
+ggplot(nyc, aes(x=as.factor(MONTH), y=SNOW, fill = as.factor(MONTH))) + 
+  geom_boxplot() +
+  ylim(0,2)+
+  scale_fill_brewer(palette="Blues") + 
+  theme_minimal()
+```
+
+```{r}
+ggplot(nyc, aes(x=as.factor(MONTH), y=SNWD, fill = as.factor(MONTH))) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  theme_minimal()
+```
+
+```{r}
+ggplot(nyc, aes(x=as.factor(MONTH), y=TMIN, fill = as.factor(MONTH))) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  theme_minimal()
+```
+
+```{r}
+ggplot(nyc, aes(x=as.factor(MONTH), y=TMAX, fill = as.factor(MONTH))) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  theme_minimal()
+```
+
+```{r}
+plot.ts(TMIN)
+acf(TMIN, lag.max = 100)
+```
+
+```{r}
+Box.test(TMIN, type="Ljung", lag=20)
+```
+
+```{r}
+cor(nyc)
+
+cor.test(PRCP, SNOW)
+cor.test(PRCP, SNWD)
+cor.test(PRCP, TMIN)
+cor.test(PRCP, TMAX)
+cor.test(SNOW, SNWD)
+cor.test(SNOW, TMIN)
+cor.test(SNOW, TMAX)
+cor.test(SNWD, TMIN)
+cor.test(SNWD, TMAX)
+cor.test(TMIN, TMAX)
+
+pairs(nyc,lower.panel = NULL)
+```
+
+```{r}
+fit1<-lm(TMIN~., nyc)
+summary(fit1)
+```
+
+```{r}
+acf(fit1$residuals, lag.max=50)
+pacf(fit1$residuals, lag.max=50)
+Box.test(fit1$residuals, type="Ljung", lag=20)
+```
+
+```{r}
+shapiro.test(fit1$residuals)
+hist(fit1$residuals, col="orange", breaks =30)
+```
+
+```{r}
+white(fit1, interactions = TRUE)
+```
+
+```{r}
+vif(fit1)
+```
+
+```{r}
+train.t<- nyc[1:1800,]
+attach(train.t)
+
+time<-seq(1:1800)
+```
+
+```{r}
+#Seasonal Model
+M1<-lm(TMIN~as.factor(MONTH)+time, train.t)
+summary(M1)
+```
+
+```{r}
+#Polynomial Model
+k= 27
+M2<-lm(TMIN~poly(time,k))
+summary(M2)
+```
+
+```{r}
+#Sine/cosine Model
+detrend<-lm(TMIN~time)
+
+o<-order(periodogram(detrend$residuals)$spec)
+tail(o,12)
+```
+
+```{r}
+n<-length(TMIN)
+
+sin1<-sin(2*pi*time*5/n)
+cos1<-cos(2*pi*time*5/n)
+sin2<-sin(2*pi*time*6/n)
+cos2<-cos(2*pi*time*6/n)  
+sin3<-sin(2*pi*time*4/n)
+cos3<-cos(2*pi*time*4/n)
+sin4<-sin(2*pi*time*1/n)
+cos4<-cos(2*pi*time*1/n)
+sin5<-sin(2*pi*time*3/n)
+cos5<-cos(2*pi*time*3/n)
+sin6<-sin(2*pi*time*2/n)
+cos6<-cos(2*pi*time*2/n)
+sin7<-sin(2*pi*time*18/n)
+cos7<-cos(2*pi*time*18/n)
+sin8<-sin(2*pi*time*10/n)
+cos8<-cos(2*pi*time*10/n)
+sin9<-sin(2*pi*time*56/n)
+cos9<-cos(2*pi*time*56/n)
+sin10<-sin(2*pi*time*22/n)
+cos10<-cos(2*pi*time*22/n)
+sin11<-sin(2*pi*time*24/n)
+cos11<-cos(2*pi*time*24/n)
+sin12<-sin(2*pi*time*23/n)
+cos12<-cos(2*pi*time*23/n)
+```
+
+```{r}
+m3<-lm(TMIN~time+sin1+cos1+sin2+cos2+sin3+cos3+sin4+cos4+sin5+cos5+sin6+cos6+sin7+cos7+sin8+cos8+sin9+cos9+sin10+cos10+sin11+cos11+sin12+cos12)
+summary(m3)
+```
+```{r}
+M3<-lm(TMIN~time+sin1+cos1+sin2+cos2+sin3+cos3+sin4+sin5+cos5+sin6+cos6+cos7+sin8+cos8+sin9+sin10+cos10+sin11+cos11+cos12)
+summary(M3)
+```
+
+```{r}
+shapiro.test(M1$residuals)
+shapiro.test(M2$residuals)
+shapiro.test(m3$residuals)
+```
+
+```{r}
+plot.ts(M1$residuals^2)
+plot.ts(M2$residuals^2)
+plot.ts(m3$residuals^2)
+```
+
+```{r}
+acf(M1$residuals, lag = 50)
+acf(M2$residuals, lag = 50)
+acf(m3$residuals, lag = 50)
+```
+
+```{r}
+Box.test(M1$residuals, lag=20, type="Ljung")
+Box.test(M2$residuals, lag=20, type="Ljung")
+Box.test(m3$residuals, lag=20, type="Ljung")
+```
+```{r}
+plot.ts(TMIN, col="gray", main="Seasonal Model vs Actual Data")
+lines(predict(M1),col="red")
+
+plot.ts(TMIN, col="gray", main="Polynomial Model vs Actual Data")
+lines(predict(M2),col="red")
+
+plot.ts(TMIN, col="gray", main="Harmonic Model vs Actual Data")
+lines(predict(M3),col="red")
+```
+
+```{r}
+#Seasonal Model
+RSE1=summary(M1)$sigma
+ADJR1=summary(M1)$adj.r.squared
+AIC1=AIC(M1)
+BIC1=BIC(M1)
+```
+
+```{r}
+#Polynomial Model
+RSE2=summary(M2)$sigma
+ADJR2=summary(M2)$adj.r.squared
+AIC2=AIC(M2)
+BIC2=BIC(M2)
+```
+
+```{r}
+#Harmonic Model
+RSE3=summary(M3)$sigma
+ADJR3=summary(M3)$adj.r.squared
+AIC3=AIC(M3)
+BIC3=BIC(M3)
+```
+
+
+```{r}
+Fit.Measures=c("RSE", "Adj R-Squared", "AIC", "BIC")
+Seasonal.Model=c(RSE1, ADJR1, AIC1, BIC1)
+Polynomial.Model=c(RSE2, ADJR2, AIC2, BIC2) 
+Harmonic.Model=c(RSE3, ADJR3, AIC3, BIC3)
+tbl1 <- data.frame(Fit.Measures, Seasonal.Model, Polynomial.Model, Harmonic.Model)
+
+tbll1<-kable(tbl1, format = "html")
+kable_styling(tbll1, bootstrap_options = c("striped", "hover"))
+```
+
+```{r}
+pred<-array(0,c(3,24))
+
+pred[1,1:24] = predict(M1, newdata =data.frame(time=c(1801:1824), MONTH= rep(12,24)))
+
+pred[2,1:24] = predict(M2, data.frame(time=c(1801:1824)))
+
+pred[3,1:24] = predict(M3, data.frame(time=c(1801:1824),
+                                      sin1=sin(2*pi*(5/n)*c(1801:1824)),
+                                      cos1=cos(2*pi*(5/n)*c(1801:1824)),
+                                      sin2=sin(2*pi*(6/n)*c(1801:1824)),
+                                      cos2=cos(2*pi*(6/n)*c(1801:1824)), 
+                                      sin3=sin(2*pi*(4/n)*c(1801:1824)),
+                                      cos3=cos(2*pi*(4/n)*c(1801:1824)),
+                                      sin4=sin(2*pi*(1/n)*c(1801:1824)),
+                                      sin5=sin(2*pi*(3/n)*c(1801:1824)),
+                                      cos5=cos(2*pi*(3/n)*c(1801:1824)),
+                                      sin6=sin(2*pi*(2/n)*c(1801:1824)),
+                                      cos6=cos(2*pi*(2/n)*c(1801:1824)),
+                                      cos7=cos(2*pi*(18/n)*c(1801:1824)),
+                                      sin8=sin(2*pi*(10/n)*c(1801:1824)),
+                                      cos8=cos(2*pi*(10/n)*c(1801:1824)),
+                                      sin9=sin(2*pi*(56/n)*c(1801:1824)),
+                                      sin10=sin(2*pi*(22/n)*c(1801:1824)),
+                                      cos10=cos(2*pi*(22/n)*c(1801:1824)),
+                                      sin11=sin(2*pi*(24/n)*c(1801:1824)),
+                                      cos11=cos(2*pi*(24/n)*c(1801:1824)),
+                                      cos12=cos(2*pi*(23/n)*c(1801:1824))))
+```
+
+```{r}
+mae1<- mean(abs(df$TMIN[1801:1824] - pred[1,1:24]))
+mae2<- mean(abs(df$TMIN[1801:1824] - pred[2,1:24]))
+mae3<- mean(abs(df$TMIN[1801:1824] - pred[3,1:24]))
+
+mse1<- mean((df$TMIN[1801:1824] - pred[1,1:24])^2)
+mse2<- mean((df$TMIN[1801:1824] - pred[2,1:24])^2)
+mse3<- mean((df$TMIN[1801:1824] - pred[3,1:24])^2)
+
+mape1<- mean(abs(df$TMIN[1801:1824] - pred[1,1:24])/df$TMIN[1801:1824])
+mape2<- mean(abs(df$TMIN[1801:1824] - pred[2,1:24])/df$TMIN[1801:1824])
+mape3<- mean(abs(df$TMIN[1801:1824] - pred[3,1:24])/df$TMIN[1801:1824])
+```
+
+```{r}
+Predictive.Performance.Measures=c("MAE", "MSE", "MAPE")
+Seasonal.Model=c(mae1, mse1, mape1)
+Polynomial.Model=c(mae2, mse2, mape2) 
+Harmonic.Model=c(mae3, mse3, mape3)
+tbl2 <- data.frame(Predictive.Performance.Measures, Seasonal.Model, Polynomial.Model, Harmonic.Model)
+
+tbll2<-kable(tbl2, format = "html")
+kable_styling(tbll2, bootstrap_options = c("striped", "hover"))
+```
+
+
+```{r}
+plot.ts(TMIN)
+acf(TMIN, lag.max = 50)
+pacf(TMIN, lag.max = 50)
+```
+
+```{r}
+plot.ts(diff(TMIN))
+acf(diff(TMIN), lag.max = 50)
+Box.test(diff(TMIN), lag=20, type="Ljung")
+pacf(diff(TMIN), lag.max = 50)
+```
+
+```{r}
+adf.test(TMIN)
+```
+
+```{r}
+arima.fit <- arima(TMIN, order = c(0, 1, 3), include.mean=F)
+arima.fit
+```
+
+
+```{r}
+coeftest(arima.fit)
+```
+
+
+```{r}
+acf(arima.fit$residuals, lag.max = 50)
+Box.test(arima.fit$residuals,lag=20, type="Ljung")
+```
+
+
+```{r}
+test1<- df$TMIN[1801:1824]
+
+pred4<- predict(arima.fit, n.ahead = 24)$pred
+
+plot(1801:1824, test1, type="b", xlab = "Time")
+lines(pred4, col="red")
+```
+
+```{r}
+acf(diff(diff(TMIN), lag=12),lag=100)
+pacf(diff(diff(TMIN), lag=12),lag=100)
+```
+
+```{r}
+sarima.fit <- arima(TMIN, order = c(0, 1, 1), seasonal=list(order=c(0,1,1), period=12))
+sarima.fit
+```
+
+```{r}
+sarima.fit <- arima(TMIN, order = c(1, 1, 0), seasonal=list(order=c(0,1,1), period=12))
+sarima.fit
+```
+
+```{r}
+sarima.fit3 <- arima(TMIN, order = c(1, 1, 1), seasonal=list(order=c(0,1,1), period=12))
+sarima.fit3
+```
+```{r}
+acf(sarima.fit3$residuals, lag.max = 50)
+Box.test(sarima.fit3$residuals,lag=20, type="Ljung")
+```
+
+```{r}
+acf(arima.fit$residuals^2, lag.max = 50)
+pacf(arima.fit$residuals^2, lag.max = 50)
+Box.test(arima.fit$residuals^2, type="Ljung", lag=30)
+```
+```{r}
+#library(forecast)
+
+auto.arima(TMIN,1)
+```
+
+```{r}
+arch.fit<-garchFit(~garch(4,0),data=diff(TMIN), trace=FALSE)
+summary(arch.fit)
+```
+
+```{r}
+acf(arch.fit@residuals/arch.fit@sigma.t, main="Residuals")
+acf((arch.fit@residuals/arch.fit@sigma.t)^2, main="Squared Residuals")
+
+Box.test(arch.fit@residuals/arch.fit@sigma.t, lag=20)
+Box.test((arch.fit@residuals/arch.fit@sigma.t)^2, lag=20)
+```
+
+```{r}
+garch.fit<-garchFit(~garch(1,1),data=diff(TMIN), trace=FALSE)
+summary(garch.fit)
+```
+
+```{r}
+acf(garch.fit@residuals/garch.fit@sigma.t, main="Residuals")
+acf((garch.fit@residuals/garch.fit@sigma.t)^2, main="Squared Residuals")
+
+Box.test(garch.fit@residuals/garch.fit@sigma.t, lag=20)
+Box.test((garch.fit@residuals/garch.fit@sigma.t)^2, lag=20)
+```
+
+
+```{r}
+garch.mod<-garchFit(~arma(0,3)+garch(1,1),data=diff(TMIN), trace=FALSE)
+summary(garch.mod)
+```
+```{r}
+plot(garch.mod, which=3) 
+```
+
+```{r}
+acf(garch.mod@residuals/garch.mod@sigma.t, main="Residuals")
+acf((garch.mod@residuals/garch.mod@sigma.t)^2, main="Squared Residuals")
+
+Box.test(garch.mod@residuals/garch.mod@sigma.t, lag=20)
+Box.test((garch.mod@residuals/garch.mod@sigma.t)^2, lag=20)
+```
+
+```{r}
+acf(m3$residuals, lag.max = 50)
+pacf(m3$residuals, lag.max = 50)
+Box.test(m3$residuals, type="Ljung", lag=30)
+```
+
+
+```{r}
+acf(diff(fit1$residuals), lag.max = 50)
+pacf(diff(fit1$residuals), lag.max = 50)
+Box.test(diff(fit1$residuals), type="Ljung", lag=30)
+```
+
+
+```{r}
+arma<-arima(m3$residuals, order = c(3, 0, 3))
+arma
+acf(m3$residuals)
+Box.test(m3$residuals, type="Ljung", lag=10)
+```
+
+```{r}
+regarma<-arima(TMIN, order = c(2, 0, 3), xreg=cbind(PRCP, SNOW, SNWD, TMAX, MONTH))
+regarma
+```
+
+```{r}
+acf(arima.fit$residuals, lag.max = 50)
+Box.test(arima.fit$residuals, type="Ljung", lag=30)
+
+
+acf(sarima.fit$residuals, lag.max = 50)
+Box.test(sarima.fit$residuals, type="Ljung", lag=30)
+
+
+acf(regarma$residuals, lag.max = 50)
+Box.test(regarma$residuals, type="Ljung", lag=30)
+```
+
+
+
+```{r}
+pred4<- predict(arima.fit, n.ahead = 24)$pred
+
+plot(1801:1824, test1, type="b", xlab = "Time", main="ARIMA Model")
+lines(pred4, col="red")
+```
+
+```{r}
+pred5<- predict(sarima.fit, n.ahead = 24)$pred
+
+plot(1801:1824, test1, type="b", xlab = "Time", main="SARIMA Model")
+lines(pred5, col="red")
+```
+
+```{r}
+pred6 <- predict(garch.mod, n.ahead = 24, plot=TRUE)
+```
+```{r}
+pred.6.1<- df$TMIN[1800] + pred6$meanForecast
+```
+
+
+```{r}
+pred8 <- predict(arch.fit, n.ahead = 24, plot=TRUE)
+```
+
+```{r}
+pred.8.1<- df$TMIN[1800] + pred8$meanForecast
+```
+
+```{r, warning=FALSE}
+attach(df)
+
+pred7=rep(0,20)
+
+#writing a for loop to get predictions for the next 20 obs
+for (i in 1801:1824){
+  
+  train.TMIN<-TMIN[1:(i-1)]
+  train.PRCP<-PRCP[1:(i-1)]
+  train.SNOW<-SNOW[1:(i-1)]
+  train.SNWD<-SNWD[1:(i-1)]
+  train.TMAX<-TMAX[1:(i-1)]
+  train.MONTH<-MONTH[1:(i-1)]
+  
+  regarma<-arima(train.TMIN, order = c(2, 0, 3), xreg=cbind(train.PRCP, train.SNOW, train.SNWD, train.TMAX, train.MONTH))
+  
+  pred7[i-1800]<-predict(regarma,n.ahead=1,newxreg=cbind(PRCP[i], SNOW[i], SNWD[i], TMAX[i], MONTH[i]))$pred
+}
+```
+
+
+```{r}
+plot(1801:1824, df$TMIN[1801:1824], type="b", xlab = "Time", main="Corrected Harmonic model")
+lines(1801:1824, pred7, col="red")
+```
+```{r}
+pred.s<- array(0,c(5,24))
+
+pred.s[1, 1:24] <- pred4
+
+pred.s[2, 1:24] <- pred5
+
+pred.s[3, 1:24] <- pred7
+
+pred.s[4, 1:24] <- pred.6.1
+
+pred.s[5, 1:24] <- pred.8.1
+```
+
+
+```{r}
+mae4<- mean(abs(df$TMIN[1801:1824] - pred.s[1,1:24]))
+mae5<- mean(abs(df$TMIN[1801:1824] - pred.s[2,1:24]))
+mae6<- mean(abs(df$TMIN[1801:1824] - pred.s[3,1:24]))
+mae7<- mean(abs(df$TMIN[1801:1824] - pred.s[4,1:24]))
+mae8<- mean(abs(df$TMIN[1801:1824] - pred.s[5,1:24]))
+
+mse4<- mean((df$TMIN[1801:1824] - pred.s[1,1:24])^2)
+mse5<- mean((df$TMIN[1801:1824] - pred.s[2,1:24])^2)
+mse6<- mean((df$TMIN[1801:1824] - pred.s[3,1:24])^2)
+mse7<- mean((df$TMIN[1801:1824] - pred.s[4,1:24])^2)
+mse8<- mean((df$TMIN[1801:1824] - pred.s[5,1:24])^2)
+
+mape4<- mean(abs(df$TMIN[1801:1824] - pred.s[1,1:24])/df$TMIN[1801:1824])
+mape5<- mean(abs(df$TMIN[1801:1824] - pred.s[2,1:24])/df$TMIN[1801:1824])
+mape6<- mean(abs(df$TMIN[1801:1824] - pred.s[3,1:24])/df$TMIN[1801:1824])
+mape7<- mean(abs(df$TMIN[1801:1824] - pred.s[4,1:24])/df$TMIN[1801:1824])
+mape8<- mean(abs(df$TMIN[1801:1824] - pred.s[5,1:24])/df$TMIN[1801:1824])
+```
+
+```{r}
+Predictive.Performance.Measures=c("MAE", "MSE", "MAPE")
+Arima.Model=c(mae4, mse4, mape4)
+Sarima.Model=c(mae5, mse5, mape5) 
+Regarma.Model=c(mae6, mse6, mape6)
+Arch.Model=c(mae8, mse8, mape8)
+Garch.Model=c(mae7, mse7, mape7)
+tbl3 <- data.frame(Predictive.Performance.Measures, Arima.Model, Sarima.Model, Regarma.Model, Arch.Model, Garch.Model)
+
+tbll3<-kable(tbl3, format = "html")
+kable_styling(tbll3, bootstrap_options = c("striped", "hover"))
+```
+
+
+```{r}
+checkresiduals(arima.fit)
+checkresiduals(sarima.fit)
+checkresiduals(regarma)
+```
+
+```{r}
+plot.ts(TMIN, col="gray", ylim=c(0,120))
+lines(TMAX, col="red")
+
+legend("topright", legend=c("TMIN", "TMAX"),
+       col=c("gray", "red"), lty=1:1, cex=0.8)
+```
+
+```{r}
+acf(TMIN)
+pacf(TMIN)
+acf(TMAX)
+pacf(TMAX)
+ccf(TMIN,TMAX)
+ccf(diff(TMIN),diff(TMAX))
+```
+
+```{r}
+data<- data.frame(TMIN,TMAX)
+
+VARorder(data)
+VMAorder(data)
+```
+
+```{r}
+Yn<-TMIN[1:1800]-mean(TMIN[1:1800])
+Xn<-TMAX[1:1800]-mean(TMAX[1:1800])
+
+m<-arimax(Yn, order=c(1,0,0), fixed=c(0,NA,NA,NA), xtransf=data.frame(Xn), transfer=list(c(2,0)), include.mean = FALSE)
+m
+```
+
+
+```{r}
+acf(m$residuals[2:length(m$residuals)])
+pacf(m$residuals[2:length(m$residuals)])
+Box.test(m$residuals[2:length(m$residuals)], lag = 20, type = "Ljung")
+```
+
+```{r}
+m2<-arimax(Yn, order=c(5,0,5), fixed=c(0,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA), xtransf=data.frame(Xn), transfer=list(c(2,0)), include.mean = FALSE)
+m2
+```
+
+```{r}
+acf(m2$residuals[2:length(m2$residuals)])
+pacf(m2$residuals[2:length(m2$residuals)])
+Box.test(m2$residuals[2:length(m2$residuals)], lag = 20, type = "Ljung")
+```
+
+```{r}
+plot.ts(Yn)
+lines(Yn-m$residuals, col="red", type="o")
+```
+
+
+```{r}
+z<-m$residuals[2:length(m$residuals)]
+
+resid<- arima(z, order = c(0,0,3))
+
+regarma2<-arimax(Yn, order = c(0, 1, 1), xreg=Xn)
+regarma2
+```
+
+
+```{r}
+pred9 <- forecast(fitted(m2), h=24)
+pred10 <- forecast(fitted(m1), h=24)
+```
+
+```{r}
+Yn<-TMIN[1:1800]-mean(TMIN[1:1800])
+Xn<-TMAX[1:1800]-mean(TMAX[1:1800])
+
+data1 <- data.frame(Yn, Xn)
+
+m1=VAR(data,p=1, q=1)
+```
+
+```{r}
+acf(m1$residuals)
+```
+
+```{r}
+plot()
+```
+
