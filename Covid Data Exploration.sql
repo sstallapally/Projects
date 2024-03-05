@@ -34,7 +34,7 @@ Where continent is not null
 Group by location
 Order by TotalDeathCount desc
 
--- Looking for Continent with highest death count
+-- Looking for the Continent with the highest death count
 
 Select location, MAX(cast(total_deaths as int)) as TotalDeathCount
 From PortfolioDataExploration..CovidDeaths
@@ -50,7 +50,7 @@ Where continent is not null
 Group by date
 Order by 1,2
 
--- Let's look at the deaths data along with the vaccinations data
+-- Looking at the death data along with the vaccination data
 
 Select *
 From PortfolioDataExploration..CovidDeaths d
@@ -97,7 +97,7 @@ Join PortfolioDataExploration..CovidVaccinations v
 Select *, (RollingCountofVaccines/population)*100 as RollingCountPercentage
 From #PercentageofPopVaccinated
 
--- Creating View to store data for future vizualizations
+-- Creating a View to store data for future visualizations
 
 Create View PercentageofPopVaccinated as
 Select d.continent, d.location, d.date, d.population, v.new_vaccinations
