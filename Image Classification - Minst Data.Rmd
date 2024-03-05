@@ -4,9 +4,7 @@ author: "Sharmishta"
 output: html_document
 ---
 
-<br>
-
-**1. Install the required libraries**
+**1. Installing the required libraries**
 
 ```{r}
 #devtools::install_github("rstudio/tensorflow", force = TRUE)
@@ -15,9 +13,8 @@ output: html_document
 #install_tensorflow()
 #install_keras()
 ```
-<br>
 
-**2. Add the libraries in the R chunk above.**
+**2. Adding the libraries in the R chunk.**
 
 ```{r}
 library(kableExtra)
@@ -31,12 +28,8 @@ library(psych)
 library(magrittr)
 library(neuralnet)
 ```
-<br>
 
-**3. For this assignment, we will be using mnist data set.**
-<br>
-
-**The following chunk calls the data:**
+**The following chunk calls the Mnist data:**
 
 ```{r}
 mnist=dataset_mnist()
@@ -46,13 +39,8 @@ y_train=mnist$train$y
 x_test=mnist$test$x
 y_test=mnist$test$y
 ```
-<br>
 
-## Questions
-<br>
-
-**4. Set up a convolutional neural network model with at least 2 conv. levels. Explain why you choose each parameter and layer.**
-<br>
+**4. Setting up a convolutional neural network model with at least 2 conv. levels.**
 
 ```{r}
 x_train <- array_reshape(x_train, c(nrow(x_train), 28, 28, 1))
@@ -64,7 +52,6 @@ x_test <- x_test / 255
 y_train <- to_categorical(y_train, 10)
 y_test <- to_categorical(y_test, 10)
 ```
-<br>
 
 ```{r}
 model <- keras_model_sequential() %>%
@@ -77,18 +64,15 @@ model <- keras_model_sequential() %>%
   layer_dropout(rate = 0.5) %>%
   layer_dense(units = 10, activation = "softmax")
 ```
-<br>
 
 ```{r}
 summary(model)
 ```
-<br>
 
-We decided to start with 2 convoluted layers and 2 dense layers and increase the number of layers if needed. The first convolutional layer has 32 filters and a kernel size of 3x3, and the second convolutional layer has 64 filters and a kernel size of 3x3. The input size here is (28x28x1) as it is the size of the images. In both convolutional layers, we used the ReLU activation function to introduce non-linearity. We also added max pooling layers after each convolutional layer, to reduce the spatial dimensions of the output and help to avoid overfitting. Then, we added last two dense layers with 128 units and 10 units respectively, and a dropout layer to prevent overfitting.
-<br>
-<br>
+We decided to start with 2 convoluted layers and 2 dense layers and increase the number of layers if needed. The first convolutional layer has 32 filters and a kernel size of 3x3, and the second convolutional layer has 64 filters and a kernel size of 3x3. The input size here is (28x28x1) as it is the size of the images. In both convolutional layers, we used the ReLU activation function to introduce non-linearity. We also added max pooling layers after each convolutional layer, to reduce the spatial dimensions of the output and help to avoid overfitting. Then, we added the last two dense layers with 128 units and 10 units respectively, and a dropout layer to prevent overfitting.
 
-**5. Compile the model. Explain why you chose a particular optimizer, loss, and evaluation metric.**
+
+**5. Compiling the model.**
 <br>
 
 ```{r}
@@ -100,12 +84,10 @@ model %>% compile(
 ```
 <br>
 
-We chose Adam optimizer as our optimizer as it is commonly used. And for the loss and metrics, we used categorical cross-entropy and accuracy as we used the same in our first class. The learning rate for the optimizer was decided arbitrarily as 0.001
-<br>
-<br>
+We chose Adam optimizer as our optimizer as it is commonly used. For the loss and metrics, we used categorical cross-entropy and accuracy as we used the same in our first class. The learning rate for the optimizer was decided arbitrarily as 0.001.
 
 
-**6. Fit the model. Explain why you chose the model parameters.**
+**6. Fitting the model.**
 
 ```{r}
 history <- model %>% fit(
@@ -115,25 +97,20 @@ history <- model %>% fit(
   validation_data = list(x_test, y_test)
 )
 ```
-<br>
 
-Since, our dataset is really big, we used less epochs as we don't have much computational power in our devices. And batch size is chosen as 128 arbitrarily.
-<br>
-<br>
+Since our dataset is large, we used fewer epochs as we don't have much computational power in our devices. And batch size is chosen as 128 arbitrarily.
 
-**7. Evaluate and predict your model. Can you plot the predicted vs actual? **
+
+**7. Evaluating and predicting the model.**
 
 ```{r}
 model %>% evaluate(x_test, y_test, verbose = 0)
 ```
-<br>
-
 
 ```{r}
 y_pred <- model %>%
   predict(x_test)
 ```
-<br>
 
 ```{r}
 y_test_new=array(0,c(10000))
