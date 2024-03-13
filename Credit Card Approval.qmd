@@ -1,0 +1,494 @@
+---
+title: "Credit Card Approval System"
+author: "Sharmishta"
+editor: visual
+format:
+  html:
+    embed-resources: true
+    self-contained-math: true
+execute: 
+  echo: true
+  warning: true
+---
+
+## Introduction
+
+In the financial services sector, the approval of credit cards is a crucial process for both consumers and providers. The conventional approaches for a credit card approval often requires manual reviews which can lead to inefficiencies and potential human errors. So, an alternative for this could be to use an automatic machine learning (ML) classification system which can help reduce labor involved in credit card applications. In this project, we aim to test various classification models to identify the best one for our problem scenario.
+
+The dataset we used for the project is from the UCI Machine Learning Repository and is known as "Credit Card Approval." This dataset, which is commonly used for classification model practice, consists of information from 690 credit card applications. The dataset contains 16 columns out of which 15 are the application features and the last one is the approval status. The features include both numerical and categorical variables.
+
+```{r, include=FALSE}
+
+library(MASS)
+library(forecast) 
+library(ggplot2)
+library(ggfortify)
+library(kableExtra)
+library(car)
+library(formatR)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(Metrics)
+library(ipred)
+library(randomForest)
+library(vip)
+library(ipred)
+library(ISLR)
+library(boot)
+library(leaps)
+library(purrr)
+library(glmnet)
+library(pls)
+library(lattice)
+library(ggvis) 
+library(nnet)
+library(pROC)
+library(class)
+library(magrittr)
+library(dplyr)
+library(gbm)
+library(e1071)
+library(ROCR)
+library(xgboost)
+library(smotefamily)
+library(reshape2)
+```
+
+```{r}
+header_names <- c('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P')
+
+df <- read.csv("C:/Users/T.SHARMISHTA/OneDrive/Desktop/credit+approval/crx.data", 
+               header = FALSE, col.names = header_names)
+
+head(df)
+```
+
+Although the dataset didn't have specific definitions for the features, I found a [use-case online](https://github.com/satyam9090/Predicting-Credit-Card-Approvals/blob/master/notebook.ipynb) where likely attributes were provided. These features are Gender, Age, Debt, Marital Status, Banking Relationship, Education Level, Ethnicity, Employment Duration, Prior Default Status, Employment Status, Credit Score, Driver's License, Citizenship, Zip Code, Income, and Approval Status. This clarification gave us a better understanding of the dataset's contents.
+
+## Part 1: Exploratory Data Analysis
+
+Before I start to analyze the data, it was important to address any missing values. Upon observation, I found that numerical columns have missing data as "NaN", whereas categorical columns contain missing values represented by "?". Therefore, our initial step was replacing "?" with null values, followed by a checking for null values.
+
+```{r}
+
+# replacing the "?" with null
+df[df == "?"] <- NA
+
+# checking for total null values in the dataset
+sum(is.na(df))
+```
+
+Even though the missing values are less, I could not ignore them because certain models like LDA cannot handle missing values. So, I decided to replace the missing values with the mean for numerical columns and with the preceding row's value for categorical columns.
+
+```{r}
+# Replacing null values
+for (col in names(df)) {
+  if (is.numeric(df[[col]])) {
+    col_mean <- mean(df[[col]], na.rm = TRUE)
+    df[[col]][is.na(df[[col]])] <- col_mean
+    } else {
+       last_value <- tail(df[[col]], 1)
+       df[[col]][is.na(df[[col]])] <- last_value
+    }
+}
+
+sum(is.na(df))
+```
+
+Another important step I needed to do is standardizing the datatypes of the columns. Expect for columns 3,7,12,15 all other columns are categorical. And I observed that column 2 which is likely to be age needs to be numerical. So, I converted it to numerical and the rest of the categorical columns into factors.
+
+```{r}
+
+# converting B to numerical column
+df$B <- as.numeric(df$B)
+
+# converting categorical columns to numeric
+df$A <- as.factor(df$A)
+df$D <- as.factor(df$D)
+df$E <- as.factor(df$E)
+df$F <- as.factor(df$F)
+df$G <- as.factor(df$G)
+df$I <- as.factor(df$I)
+df$J <- as.factor(df$J)
+df$L <- as.factor(df$L)
+df$M <- as.factor(df$M)
+df$N <- as.factor(df$N)
+df$P <- as.factor(df$P)
+
+head(df)
+```
+
+Here are the summary statistics of the dataset as whole:
+
+```{r}
+
+summary(df)
+```
+
+The following box plots show the distribution of the numerical variables (Age, Debt, Employement Duration, Credit Score, Income) with respect to the approval status:
+
+```{r, echo=FALSE}
+ggplot(df, aes(x=P, y=B, fill = P)) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  labs(x = "Result", title = "Age vs Approval Status - B") +
+  theme_minimal()
+
+ggplot(df, aes(x=P, y=C, fill = P)) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  labs(x = "Result", title = "Debt vs Approval Status - C") +
+  theme_minimal()
+
+ggplot(df, aes(x=P, y=H, fill = P)) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  labs(x = "Result", title = "Employement Duration vs Approval Status - H") +
+  theme_minimal()
+
+ggplot(df, aes(x=P, y=K, fill = P)) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  labs(x = "Result", title = "Credit Score vs Approval Status - K") +
+  theme_minimal()
+
+ggplot(df, aes(x=P, y=O, fill = P)) + 
+  geom_boxplot() +
+  scale_fill_brewer(palette="Blues") + 
+  labs(x = "Result", title = "Income vs Approval Status - O") +
+  theme_minimal()
+```
+
+We notice that for all the variables, the higher the values, the more likely they are to get approved. This is surprising considering even the applicants with higher debts are being approved.
+
+The following bar plots show the distribution of the categorical variables:
+
+```{r, echo=FALSE}
+ggplot(data = df, aes(x = A, fill = A)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Gender vs Approval Status - A") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = D, fill = D)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Marital Status vs Approval Status - D") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = E, fill = E)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Bank Customer Status vs Approval Status - E") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = 'F', fill = 'F')) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Education Level vs Approval Status - F") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = G, fill = G)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Ethnicity vs Approval Status - G") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = I, fill = I)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Prior Default Status vs Approval Status - E") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = J, fill = J)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Employement status vs Approval Status - J") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = L, fill = L)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Driver's License vs Approval Status - L") +
+  theme_minimal()
+
+ggplot(data = df, aes(x = M, fill = M)) +
+  geom_bar(color = "black") +
+  scale_fill_brewer(palette="Blues") +
+  labs(y = "Count", title = "Citizenship vs Approval Status - M") +
+  theme_minimal()
+
+counts <- table(df$N)
+barplot(counts, col = "lightblue", xlab = "N", ylab = "Count", main = "Zipcode vs Approval Status - N")
+```
+
+The plots which show a diverse range across all applicant attributes, except for their education level. This suggests that the credit card was likely marketed towards a specific group of people with specific education levels (Ex: Student Credit Cards). Furthermore, upon examining the approval status, I observed a nearly equal distribution, which minimizes potential bias in my future analyses.
+
+```{r, echo=FALSE}
+
+ggplot(data = df, aes(x = P, fill = P)) +
+  geom_bar(color = "black") +
+  scale_fill_manual(values = c("brown3", 'chartreuse3')) +
+  labs(y = "Count", title = "Approval Status") +
+  theme_minimal()
+```
+
+In our final data preprocessing step, I partitioned the data into test and train sets using a stratified sampling method. This method ensured an equal distribution of zip-code values across both sets, which was particularly important due to the high occurrence of a single zip-code compared to others.
+
+```{r, warning=FALSE}
+
+set.seed(123)
+partition <- createDataPartition(df$N, times = 1, p = 0.8, list = FALSE)
+test=df[-partition,]
+train=df[partition,]
+
+c(nrow(df), nrow(train), nrow(test))
+```
+
+## Part 2: Logistic Regression
+
+Given our binary classification problem and the similarity of predictor variables, I believe that multicollinearity (the attributes are telling the same story) can be a problem. Therefore, I opted for logistic regression, which can manage multicollinearity effectively. For our initial model, I removed the zip-code feature, as I believe geographical location does not significantly influence credit card approval status.
+
+```{r, warning=FALSE}
+
+m1 = glm(P~.-N, data=train, family = binomial)
+summary(m1)
+```
+
+I noticed that there are many features that have zero significance like Gender, Age, Debt, Marital Status, Bank Customer Status and Employment Status. I decided to keep Debt and Employment Status and remove everything else from the model. The final model consists of the predictors: Debt, Education Level, Ethnicity, Employment Duration, Prior Default Status, Employment Status, Credit Score, Driver's License, Citizenship and Income.
+
+```{r}
+
+m2 = glm(P~ C+F+G+H+I+J+K+L+M+O, data=train, family = binomial)
+summary(m2)
+```
+
+Here is the confusion matrix and testing error for the model:
+
+```{r, warning=FALSE}
+
+logprob<-predict(m2, newdata=test, type="response")
+logpred=rep(0, nrow(test))
+logpred[logprob>=.5]=2
+logpred[logprob<.5]=1
+logpred = as.factor(logpred)
+
+# Confusion Matrix
+confusionMatrix(data=logpred, reference=as.factor(as.numeric(test$P)))
+```
+
+```{r}
+
+# Error Rate
+round(mean(logpred!=as.factor(as.numeric(test$P))),4)
+```
+
+The Logistic Regression model achieved an overall accuracy of approximately 79%, which is a good value. However, my primary interest was to check sensitivity, which is the percentage instances where the applications are correctly denied in the denied applications. A higher sensitivity reflects better model performance. Regrettably, the model shows poor sensitivity, approving 12 out of 51 applications that should have been denied.
+
+## Part 3: KNN
+
+Before I proceeded with the KNN model, it was necessary to convert all categorical variables into numerical values. This step was important because the KNN model works by calculating the Euclidean distance between attribute values, and it cannot handle categorical variables directly.
+
+```{r}
+
+# creating duplicates for test and train sets
+train2 <- train
+test2 <- test
+
+# converting all the factor variables to numericals
+train2$A <- as.numeric(as.factor(train2$A))
+train2$D <- as.numeric(as.factor(train2$D))
+train2$E <- as.numeric(as.factor(train2$E))
+train2$'F' <- as.numeric(as.factor(train2$'F'))
+train2$G <- as.numeric(as.factor(train2$G))
+train2$I <- as.numeric(as.factor(train2$I))
+train2$J <- as.numeric(as.factor(train2$J))
+train2$L <- as.numeric(as.factor(train2$L))
+train2$M <- as.numeric(as.factor(train2$M))
+train2$N <- as.numeric(as.factor(train2$N))
+train2$P <- as.numeric(as.factor(train2$P))
+
+test2$A <- as.numeric(as.factor(test2$A))
+test2$D <- as.numeric(as.factor(test2$D))
+test2$E <- as.numeric(as.factor(test2$E))
+test2$'F' <- as.numeric(as.factor(test2$'F'))
+test2$G <- as.numeric(as.factor(test2$G))
+test2$I <- as.numeric(as.factor(test2$I))
+test2$J <- as.numeric(as.factor(test2$J))
+test2$L <- as.numeric(as.factor(test2$L))
+test2$M <- as.numeric(as.factor(test2$M))
+test2$N <- as.numeric(as.factor(test2$N))
+test2$P <- as.numeric(as.factor(test2$P))
+
+# converting the levels of P from 1&2 to 0&1
+train2$P[train2$P == 1] <- 0
+train2$P[train2$P == 2] <- 1
+
+test2$P[test2$P == 1] <- 0
+test2$P[test2$P == 2] <- 1
+```
+
+```{r}
+
+set.seed(123)
+
+knn.train=train2[,1:15]
+knn.test=test2[,1:15]
+
+knn.trainLabels=train2[,"P"]
+knn.testLabels=test2[,"P"]
+
+m3 <- knn(train = knn.train, test = knn.test, cl = knn.trainLabels, k=10)
+plot(m3)
+```
+
+Here is the confusion matrix and testing error for the model:
+
+```{r}
+
+# Confusion Matrix
+table(m3, knn.testLabels)
+```
+
+```{r}
+
+# Error Rate
+mean(m3!=knn.testLabels)
+
+# Accuracy
+1-mean(m3!=knn.testLabels)
+```
+
+The KNN model has an accuracy of 75% which is lesser than the Logistic Regression model but it has a sensitivity of (42/51\*100) = 82% which is higher. Hence, we can say that KNN model performs moderately better.
+
+## Part 4: Tree Based Model
+
+I decided to build two models: a Random Forest model and an XGBoost model. I selected Random Forest due to its effectiveness with large and complex datasets. And for the XGBoost model, I opted it for its capability to achieve high prediction accuracy.
+
+#### Random Forest Model
+
+```{r}
+
+#Random forest
+m4 = randomForest(P ~ .-N, data = train, importance=TRUE, proximity=TRUE)
+print(m4)
+```
+
+Here is the confusion matrix and testing error for the model:
+
+```{r}
+
+# Confusion Matrix
+rf_predictions <- predict(m4, test)
+confusionMatrix(rf_predictions, test$P)
+```
+
+```{r}
+
+# Error Rate 
+mean(rf_predictions != test$P)
+
+# Accuracy 
+mean(rf_predictions == test$P)
+```
+
+The Random forest model has a similar performance in terms of sensitivity as the KNN model with an accuracy of 83% and a sensitivity of 84%. So, both KNN model and Random Forest model are better than the Logistic Regression Model.
+
+### XGBoost Model
+
+```{r}
+
+features <- setdiff(names(train2), "P")
+response <- "P"
+
+m5 <- xgboost(data = as.matrix(train2[, features]), 
+                     label = train2[, response], 
+                     nrounds = 100,
+                     objective = "multi:softmax",
+                     num_class = length(levels(train[, response])))
+```
+
+Here is the confusion matrix and testing error for the model:
+
+```{r}
+
+# Confusion Matrix
+xgb_predictions <- predict(m5, as.matrix(test2[, features]))
+confusionMatrix(data = as.factor(xgb_predictions), reference = as.factor(test2$P))
+```
+
+```{r}
+
+# Error Rate
+mean(xgb_predictions != test2[, response])
+
+# Accuracy
+mean(xgb_predictions == test2[, response])
+```
+
+The XGBoost Model has relatively higher accuracy than the other models. However, in terms of sensitivity, it performs the same as KNN model and Random Forest Models.
+
+## Part 5: SVM
+
+The last model we built is an SVM Model.
+
+```{r}
+m6 <- svm(P ~ ., data = train2, type = "C-classification", kernel = "radial", 
+          scale = TRUE)
+m6
+
+# Plotting the region plot for Debt vs Income
+plot(m6, data = train2, O~C)
+```
+
+Here is the confusion matrix and testing error for the model:
+
+```{r}
+
+svm_predictions <- predict(m6, test2)
+
+# Confusion Matrix
+confusionMatrix(factor(svm_predictions, levels=0:1), factor(test2$P))
+```
+
+```{r}
+
+# Error Rate
+mean(svm_predictions != test2$P)
+
+# Accuracy
+mean(svm_predictions == test2$P)
+```
+
+The SVM Model perform weaker than the Tree-based models with an accuracy of 81% and sensitivity of 80%. However, it is still better than the Logistic Regression Model.
+
+## Part 6: Conclusion
+
+After assessing various performance metrics, specifically sensitivity, I found that tree-based models work best for the problem. We also prefer tree-based models due to their ability to handle factorized categorical variables which provides greater flexibility. Additionally, these models have demonstrated higher accuracies, offering an added advantage.
+
+Further improvement of these models can be achieved through careful fine-tuning of their attributes. In particular, the XGBoost model has the potential to achieve near-perfect accuracy when features are meticulously tuned.
+
+## Learning Outcomes
+
+-   Data preprocessing and pattern identification:
+
+    -   Processing the dataset to prepare it for analysis.
+
+    -   Identifying patterns and details within the data to gain insights.
+
+-   Handling missing values:
+
+    -   Implementing techniques to address missing values in the dataset.
+
+-   Building classification models in R:
+
+    -   Constructing various classification models using R.
+
+-   Evaluating model performances:
+
+    -   Understanding the performance of different models based on the type of data utilized.
+
+-   Real-life significance of machine learning models:
+
+    -   Appreciating the practical applications and advantages of using machine learning models over human labor in various scenarios.
